@@ -1,0 +1,9 @@
+{
+  "name": "lab-ml-003",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "serve": "python -m http.server 8000",
+    "parity": "node web/_parity_test.mjs"
+  }
+}

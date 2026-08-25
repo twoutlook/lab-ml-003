@@ -1,0 +1,13 @@
+node_modules/
+__pycache__/
+*.pyc
+
+# 訓練產物：binary，而且 python ml/train.py 就能重跑出來。
+# 網頁需要的那份權重是 web/policy.json，那個有進版控。
+ml/checkpoints/*.pt
+
+# 影片與 artifact 的建置產物（mp4、旁白 mp3、預覽 png、artifact.html）。
+# 影片在 YouTube 上，artifact 在 claude.ai 上，這裡不需要再存一份。
+out/*
+!out/plan.json
+!out/youtube.json

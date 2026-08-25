@@ -1,0 +1,21 @@
+{
+  "rings": 9,
+  "maxSteps": 1200,
+  "gamma": 0.95,
+  "shapingGamma": 1.0,
+  "reward": {
+    "step": -0.01,
+    "solve": 1.0,
+    "illegal": -0.05,
+    "shaping": 0.05,
+    "naiveRingOff": 0.0
+  },
+  "view": {
+    "width": 620,
+    "height": 320,
+    "barY": 168,
+    "ringGap": 58,
+    "ringRadius": 21,
+    "marginRight": 70
+  }
+}

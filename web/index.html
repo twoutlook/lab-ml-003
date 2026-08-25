@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>九連環 × DQN</title>
+<style>
+  :root {
+    --bg: #060911; --panel: #0f172a; --line: #1e293b;
+    --fg: #e2e8f0; --dim: #94a3b8; --accent: #38bdf8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px; background: var(--bg); color: var(--fg);
+    font-family: "Noto Sans TC", system-ui, -apple-system, sans-serif;
+    display: flex; justify-content: center;
+  }
+  .wrap { width: 100%; max-width: 1080px; }
+  h1 { font-size: 20px; margin: 0 0 4px; letter-spacing: .5px; }
+  .sub { color: var(--dim); font-size: 13px; margin: 0 0 18px; }
+  .layout { display: grid; grid-template-columns: 620px minmax(0, 1fr); gap: 20px; align-items: start; }
+  @media (max-width: 1040px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+  canvas#game { border-radius: 10px; border: 1px solid var(--line); display: block; width: 620px; max-width: 100%; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 14px; }
+  .panel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--dim); margin: 0 0 10px; font-weight: 600; }
+  .modes { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+  button, select {
+    font: inherit; font-size: 13px; padding: 7px 12px; border-radius: 7px; cursor: pointer;
+    background: #1e293b; color: var(--fg); border: 1px solid #334155;
+  }
+  button:hover:not(:disabled) { background: #263449; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  button.mode.active { background: var(--accent); color: #06121c; border-color: var(--accent); font-weight: 600; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .hud { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px 4px; font-size: 13px; }
+  .hud div span:first-child { display: block; color: var(--dim); font-size: 11px; }
+  .hud b { font-family: ui-monospace, monospace; font-size: 17px; font-weight: 600; }
+  .note { font-size: 12px; line-height: 1.6; margin: 10px 0 0; padding: 8px 10px; border-radius: 6px; }
+  .note.ok { background: rgba(56,189,248,.1); color: #7dd3fc; }
+  .note.warn { background: rgba(251,191,36,.1); color: #fcd34d; }
+  input[type=range] { accent-color: var(--accent); }
+  code { background: #0b1220; padding: 1px 5px; border-radius: 4px; font-size: 12px; color: #7dd3fc; }
+  .help { font-size: 12.5px; color: var(--dim); line-height: 1.75; }
+  .help p { margin: 0 0 8px; }
+  .help ul { margin: 0 0 8px; padding-left: 18px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>九連環 × DQN</h1>
+  <p class="sub">同一套規則跑在兩邊：<code>web/engine.js</code> 給你玩，<code>ml/env.py</code> 給 agent 訓練。這個謎題有已知的最優解（341 步），所以隨時知道 AI 離最優差多少。</p>
+
+  <div class="layout">
+    <div>
+      <canvas id="game" width="620" height="320"></canvas>
+      <div class="panel" style="margin-top:14px">
+        <h2>規則（只有兩條）</h2>
+        <div class="help">
+          <ul>
+            <li>環 1（最右邊）隨時可以上或下。</li>
+            <li>環 k 可以動，若且唯若環 k−1 在桿上、而且環 1…k−2 全都不在。</li>
+          </ul>
+          <p>結果就是：任何時候最多只有 <b>2</b> 個環動得了。整個狀態空間 2⁹ = 512 個狀態排成一條線，
+             你只能往前或往後一步。全上的狀態離終點 341 步——中途一定要把已經拿下來的環再裝回去，
+             所以「一路往前拆」的貪心策略必死。</p>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <h2>誰在解</h2>
+        <div class="modes">
+          <button id="modeHuman" class="mode active">你來解</button>
+          <button id="modeDqn" class="mode">DQN agent</button>
+          <button id="modeOptimal" class="mode">最優解</button>
+          <button id="modeRandom" class="mode">亂走</button>
+        </div>
+        <div class="row">
+          <button id="btnStart">播放 (Space)</button>
+          <button id="btnStep">單步</button>
+          <button id="btnReset">重來 (R)</button>
+          <select id="startSel">
+            <option value="full">從全上開始（341 步）</option>
+            <option value="random">從隨機狀態開始</option>
+          </select>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <span style="font-size:13px;color:var(--dim)">播放速度</span>
+          <input type="range" id="speed" min="1" max="30" value="4" style="flex:1;min-width:110px">
+          <b id="speedLabel" style="font-family:ui-monospace,monospace;font-size:12px">4 步/幀</b>
+        </div>
+        <p class="note ok" id="policyInfo">載入中…</p>
+      </div>
+
+      <div class="panel">
+        <h2>本局</h2>
+        <div class="hud">
+          <div><span>已走步數</span><b id="hudSteps">0</b></div>
+          <div><span>還要幾步</span><b id="hudLeft">341</b></div>
+          <div><span>起點最優</span><b id="hudStart">341</b></div>
+          <div><span>多走了</span><b id="hudExtra">-</b></div>
+          <div><span>全上最優</span><b id="hudOptimal">341</b></div>
+          <div><span>解過幾次</span><b id="hudRuns">0</b></div>
+          <div><span>成功</span><b id="hudSolved">-</b></div>
+          <div><span>最少步數</span><b id="hudBest">-</b></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>AI 的 Q 值（牠覺得動哪個環值多少）</h2>
+        <canvas id="qbars" width="360" height="178" style="width:100%;max-width:360px"></canvas>
+        <p class="help" style="margin-top:6px">
+          Q(s,a) = 「現在動這個環，之後累積起來大概能拿多少分」。灰色那些是規則上動不了的環，
+          訓練時它們被壓成 −1e9，所以網路對它們輸出什麼都無所謂。真正在比的只有那 1–2 條藍色的。
+        </p>
+      </div>
+
+      <div class="panel">
+        <h2>訓練曲線</h2>
+        <canvas id="curve" width="380" height="180" style="width:100%"></canvas>
+        <p class="help" style="margin-top:6px">
+          橫軸是收集了幾個 transition。因為狀態只有 512 個而且環境是決定性的，
+          評估直接窮舉全部起點——沒有取樣雜訊，這條線是實線不是估計值。
+        </p>
+      </div>
+
+      <div class="panel">
+        <h2>怎麼用</h2>
+        <div class="help">
+          <p>1. 這頁要用小型伺服器開（<code>file://</code> 不能 fetch）：<br>
+             在專案根目錄跑 <code>python -m http.server 8000</code>，然後開
+             <code>http://localhost:8000/web/</code></p>
+          <p>2. 訓練 agent：<code>cd ml &amp;&amp; python train.py</code></p>
+          <p>3. 匯出給網頁：<code>python export_policy.py</code>，重整這頁就會看到 DQN 模式。</p>
+          <p>4. 跟基準線比：<code>python evaluate.py</code>；跨語言對帳：<code>node web/_parity_test.mjs</code></p>
+          <p>操作：點環或按數字鍵 <code>1</code>–<code>9</code> 動那個環。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script type="module" src="main.js"></script>
+</body>
+</html>
