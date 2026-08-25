@@ -56,6 +56,10 @@ def parse_args():
     p.add_argument("--start", choices=["random", "full", "curriculum"], default="random",
                    help="每局從哪裡開始。random 會把 512 個狀態都走過，full 只走得到 342 個")
     p.add_argument("--shaping", type=float, default=None, help="覆蓋 config 的 reward.shaping（0 = 純稀疏獎勵）")
+    p.add_argument("--shaping-gamma", type=float, default=None,
+                   help="覆蓋 config 的 shapingGamma。設成跟 gamma 一樣就是教科書寫法——會學不起來，見 README")
+    p.add_argument("--tag", default=None,
+                   help="把產出寫到 checkpoints/<tag>/，而且不覆蓋網頁用的 training_log.json。跑對照實驗用")
     p.add_argument("--naive", type=float, default=None, help="覆蓋 config 的 reward.naiveRingOff（會把 agent 教壞的獎勵）")
     p.add_argument("--eval-every", type=int, default=25_000, help="每幾個 transition 評估一次")
     p.add_argument("--seed", type=int, default=0)
@@ -66,6 +70,9 @@ def parse_args():
 
 def main():
     args = parse_args()
+    global CKPT
+    if args.tag:
+        CKPT = CKPT / args.tag
     CKPT.mkdir(parents=True, exist_ok=True)
     WEB.mkdir(parents=True, exist_ok=True)
     device = torch.device(args.device)
@@ -77,6 +84,8 @@ def main():
         cfg["reward"]["shaping"] = args.shaping
     if args.naive is not None:
         cfg["reward"]["naiveRingOff"] = args.naive
+    if args.shaping_gamma is not None:
+        cfg["shapingGamma"] = args.shaping_gamma
     gamma = float(cfg["gamma"]) if args.gamma is None else args.gamma
 
     start_max = 8 if args.start == "curriculum" else None
@@ -84,8 +93,8 @@ def main():
     obs_size, n_actions = vec.obs_size, vec.n_actions
     full_dist = vec.envs[0].full_distance
     print(f"device={device}  obs_size={obs_size}  n_actions={n_actions}  envs={args.envs}")
-    print(f"start={args.start}  shaping={cfg['reward']['shaping']}  naive={cfg['reward']['naiveRingOff']}  "
-          f"gamma={gamma}  最優步數={full_dist}")
+    print(f"start={args.start}  shaping={cfg['reward']['shaping']}  shapingGamma={cfg.get('shapingGamma', 1.0)}  "
+          f"naive={cfg['reward']['naiveRingOff']}  gamma={gamma}  最優步數={full_dist}")
 
     net = DuelingQNet(obs_size, n_actions, args.hidden).to(device)
     target = DuelingQNet(obs_size, n_actions, args.hidden).to(device)
@@ -191,7 +200,10 @@ def main():
                             "solve_rate": round(ev["solve_rate"], 3),
                             "optimal_rate": round(ev["optimal_rate"], 3),
                             "full_steps": fs})
-            (WEB / "training_log.json").write_text(json.dumps(history), encoding="utf-8")
+            if args.tag:
+                (CKPT / "history.json").write_text(json.dumps(history), encoding="utf-8")
+            else:
+                (WEB / "training_log.json").write_text(json.dumps(history), encoding="utf-8")
 
             # curriculum：解得夠好就把起點往後推
             if args.start == "curriculum" and train_solve > 0.9:

@@ -1,0 +1,748 @@
+<title>九連環 × DQN</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;1,400&family=Noto+Serif+TC:wght@500;700&family=Noto+Sans+TC:wght@300;400;500&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+/* ── 拓印：銅器上的鏽色與朱砂，落在帶青的紙上。
+      九連環本身就是一個九位元計數器，所以整頁的骨架是「古物」與「二進位」兩條線。 ── */
+:root {
+  --paper:     #E9EAE3;
+  --surface:   #F4F5EF;
+  --surface-2: #DDE0D6;
+  --ink:       #1D221F;
+  --ink-soft:  #49524A;
+  --muted:     #6C746B;
+  --rule:      #C7CABE;
+  --verdigris: #2C7360;
+  --cinnabar:  #A2392A;
+  --brass:     #8C6E2A;
+  --shadow:    0 1px 2px rgba(29,34,31,.06), 0 8px 28px -18px rgba(29,34,31,.5);
+
+  --display: "Spectral", "Noto Serif TC", Georgia, serif;
+  --body:    "Noto Sans TC", system-ui, -apple-system, sans-serif;
+  --mono:    "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+
+  --measure: 68ch;
+  --wide: 1080px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper:     #121513;
+    --surface:   #1A1E1B;
+    --surface-2: #242926;
+    --ink:       #E6E9E1;
+    --ink-soft:  #B3BAB1;
+    --muted:     #88917F;
+    --rule:      #2D332E;
+    --verdigris: #67C0A4;
+    --cinnabar:  #E0755F;
+    --brass:     #CFA44D;
+    --shadow:    0 1px 2px rgba(0,0,0,.4), 0 12px 32px -20px rgba(0,0,0,.9);
+  }
+}
+:root[data-theme="dark"] {
+  --paper:     #121513;
+  --surface:   #1A1E1B;
+  --surface-2: #242926;
+  --ink:       #E6E9E1;
+  --ink-soft:  #B3BAB1;
+  --muted:     #88917F;
+  --rule:      #2D332E;
+  --verdigris: #67C0A4;
+  --cinnabar:  #E0755F;
+  --brass:     #CFA44D;
+  --shadow:    0 1px 2px rgba(0,0,0,.4), 0 12px 32px -20px rgba(0,0,0,.9);
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--body);
+  font-weight: 300;
+  font-size: 17px;
+  line-height: 1.75;
+  -webkit-font-smoothing: antialiased;
+}
+:root[data-lang="en"] .zh, :root:not([data-lang="en"]) .en { display: none; }
+
+.wrap { max-width: var(--wide); margin: 0 auto; padding: 0 24px 96px; }
+.col  { max-width: var(--measure); margin-inline: auto; }
+
+h1, h2, h3 { font-family: var(--display); font-weight: 600; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2.6rem, 7vw, 4.4rem); line-height: 1.02; letter-spacing: -.02em; }
+h2 { font-size: clamp(1.5rem, 3.2vw, 2.05rem); line-height: 1.2; margin-bottom: .5em; }
+h3 { font-size: 1.12rem; line-height: 1.4; }
+p  { margin: 0 0 1.15em; }
+a  { color: var(--verdigris); text-underline-offset: 3px; text-decoration-thickness: 1px; }
+strong { font-weight: 500; color: var(--ink); }
+code { font-family: var(--mono); font-size: .88em; background: var(--surface-2); padding: .1em .38em; border-radius: 3px; }
+:focus-visible { outline: 2px solid var(--verdigris); outline-offset: 2px; border-radius: 3px; }
+
+.eyebrow {
+  font-family: var(--mono); font-size: .72rem; font-weight: 500;
+  letter-spacing: .18em; text-transform: uppercase; color: var(--muted);
+  display: flex; align-items: center; gap: .8em;
+}
+.eyebrow::after { content: ""; flex: 1; height: 1px; background: var(--rule); }
+
+/* ── 頂列 ── */
+.topbar {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 24px; background: color-mix(in srgb, var(--paper) 88%, transparent);
+  backdrop-filter: blur(8px); border-bottom: 1px solid var(--rule);
+}
+.mark { font-family: var(--mono); font-size: .78rem; letter-spacing: .1em; color: var(--muted); margin-right: auto; }
+.tbtn {
+  font: inherit; font-family: var(--mono); font-size: .74rem; letter-spacing: .06em;
+  padding: 5px 11px; border-radius: 999px; cursor: pointer;
+  background: transparent; color: var(--ink-soft); border: 1px solid var(--rule);
+}
+.tbtn:hover { border-color: var(--verdigris); color: var(--verdigris); }
+
+/* ── 開場 ── */
+.hero { padding: 72px 0 40px; }
+.hero .lede { font-size: 1.18rem; color: var(--ink-soft); max-width: 54ch; }
+.bits {
+  font-family: var(--mono); font-weight: 600;
+  font-size: clamp(1.5rem, 5.5vw, 2.6rem); letter-spacing: .22em;
+  color: var(--brass); margin: 26px 0 6px;
+}
+.bits span { transition: color .18s ease, opacity .18s ease; }
+.bits span.off { color: var(--muted); opacity: .38; }
+.bits-note { font-family: var(--mono); font-size: .74rem; color: var(--muted); letter-spacing: .08em; }
+
+/* ── 儀器面板 ── */
+.panel {
+  background: var(--surface); border: 1px solid var(--rule); border-radius: 10px;
+  box-shadow: var(--shadow); overflow: hidden; margin: 34px 0;
+}
+.panel-hd {
+  display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+  padding: 14px 20px; border-bottom: 1px solid var(--rule); background: var(--surface-2);
+}
+.panel-hd h3 { font-family: var(--body); font-weight: 500; font-size: .95rem; }
+.panel-hd .sub { font-family: var(--mono); font-size: .72rem; color: var(--muted); letter-spacing: .06em; }
+.panel-bd { padding: 20px; }
+
+.controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
+.seg { display: flex; border: 1px solid var(--rule); border-radius: 7px; overflow: hidden; }
+.seg button {
+  font: inherit; font-size: .84rem; padding: 6px 13px; cursor: pointer;
+  background: transparent; color: var(--ink-soft); border: 0; border-right: 1px solid var(--rule);
+}
+.seg button:last-child { border-right: 0; }
+.seg button[aria-pressed="true"] { background: var(--verdigris); color: var(--surface); font-weight: 500; }
+:root[data-theme="dark"] .seg button[aria-pressed="true"],
+:root:not([data-theme="light"]) .seg button[aria-pressed="true"] { color: #10201B; }
+.ghost {
+  font: inherit; font-size: .84rem; padding: 6px 13px; cursor: pointer; border-radius: 7px;
+  background: transparent; color: var(--ink-soft); border: 1px solid var(--rule);
+}
+.ghost:hover { border-color: var(--verdigris); color: var(--verdigris); }
+
+canvas { display: block; width: 100%; }
+.readout {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: 4px 18px;
+  margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--rule);
+}
+.readout div span { display: block; font-size: .72rem; color: var(--muted); letter-spacing: .04em; }
+.readout div b { font-family: var(--mono); font-weight: 500; font-size: 1.55rem; font-variant-numeric: tabular-nums; }
+
+/* ── 表 ── */
+.tablewrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+th, td { text-align: right; padding: 9px 12px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { font-family: var(--mono); font-size: .7rem; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+tr.hi td { background: color-mix(in srgb, var(--verdigris) 9%, transparent); font-weight: 500; }
+tr.hi td:first-child { box-shadow: inset 3px 0 0 var(--verdigris); }
+
+/* ── 規則卡 ── */
+.rules { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin: 26px 0; }
+.rule-card { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 18px 20px; }
+.rule-card .n { font-family: var(--mono); font-size: .72rem; color: var(--brass); letter-spacing: .14em; }
+.rule-card p { margin: .5em 0 0; font-size: .96rem; color: var(--ink-soft); }
+
+.callout {
+  border-left: 3px solid var(--cinnabar); background: color-mix(in srgb, var(--cinnabar) 7%, transparent);
+  padding: 16px 20px; border-radius: 0 8px 8px 0; margin: 26px 0;
+}
+.callout p:last-child { margin-bottom: 0; }
+.formula {
+  font-family: var(--mono); font-size: clamp(.8rem, 2.2vw, .96rem); font-weight: 500;
+  background: var(--surface-2); border: 1px solid var(--rule); border-radius: 8px;
+  padding: 16px 18px; margin: 20px 0; color: var(--ink); line-height: 2;
+  display: flex; flex-wrap: wrap; gap: 6px 28px;
+}
+.legend { display: flex; gap: 22px; flex-wrap: wrap; font-size: .84rem; color: var(--ink-soft); margin-top: 12px; }
+.legend i { display: inline-block; width: 22px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 7px; }
+
+.links { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); margin: 28px 0 0; }
+.linkcard {
+  display: block; text-decoration: none; color: inherit;
+  background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 16px 18px;
+}
+.linkcard:hover { border-color: var(--verdigris); }
+.linkcard b { display: block; font-family: var(--body); font-weight: 500; font-size: .98rem; }
+.linkcard span { font-family: var(--mono); font-size: .74rem; color: var(--muted); word-break: break-all; }
+
+footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--rule); font-size: .8rem; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="topbar">
+  <span class="mark">lab-ml-003 · 九連環 × DQN</span>
+  <button class="tbtn" id="langBtn" type="button">EN</button>
+  <button class="tbtn" id="themeBtn" type="button">◐</button>
+</div>
+
+<div class="wrap">
+
+  <header class="hero col">
+    <p class="eyebrow">Reinforcement learning · from scratch</p>
+    <h1><span class="zh">341 步，<br>一步都不能多</span><span class="en">341 moves,<br>not one to spare</span></h1>
+    <div class="bits" id="heroBits" aria-hidden="true">111111111</div>
+    <p class="bits-note" id="heroNote">state · distance to solved</p>
+    <p class="lede" style="margin-top:22px">
+      <span class="zh">九連環有精確的最優解，所以這一次我們能準確知道 agent 差了幾步。
+        謎題、環境、神經網路全部手寫，沒有用 Gym，也沒有用 Stable-Baselines3。</span>
+      <span class="en">The Chinese rings puzzle has an exact optimal solution, so for once we know
+        precisely how far off the agent is. The puzzle, the environment and the Q-network are all
+        hand-written — no Gym, no Stable-Baselines3.</span>
+    </p>
+  </header>
+
+  <!-- ── 儀器一：讓它在你面前解 ── -->
+  <section class="panel">
+    <div class="panel-hd">
+      <h3><span class="zh">現場解一次</span><span class="en">Watch it solve</span></h3>
+      <span class="sub" id="solverSub">policy · dqn</span>
+    </div>
+    <div class="panel-bd">
+      <div class="controls">
+        <div class="seg" role="group" id="policySeg">
+          <button type="button" data-p="dqn" aria-pressed="true"><span class="zh">DQN agent</span><span class="en">DQN agent</span></button>
+          <button type="button" data-p="optimal" aria-pressed="false"><span class="zh">最優解</span><span class="en">Optimal</span></button>
+          <button type="button" data-p="greedy" aria-pressed="false"><span class="zh">貪心拿環</span><span class="en">Greedy</span></button>
+          <button type="button" data-p="random" aria-pressed="false"><span class="zh">亂走</span><span class="en">Random</span></button>
+        </div>
+        <button class="ghost" id="playBtn" type="button"><span class="zh">暫停</span><span class="en">Pause</span></button>
+        <button class="ghost" id="resetBtn" type="button"><span class="zh">重來</span><span class="en">Restart</span></button>
+      </div>
+      <canvas id="puzzle" height="230" aria-label="九連環"></canvas>
+      <div class="readout">
+        <div><span class="zh">已走步數</span><span class="en">moves made</span><b id="rSteps">0</b></div>
+        <div><span class="zh">還要幾步</span><span class="en">moves left</span><b id="rLeft">341</b></div>
+        <div><span class="zh">最優步數</span><span class="en">optimal</span><b id="rOpt">341</b></div>
+        <div><span class="zh">多走了</span><span class="en">wasted</span><b id="rExtra">—</b></div>
+      </div>
+      <canvas id="trace" height="200" style="margin-top:18px" aria-label="距離曲線"></canvas>
+      <p style="font-size:.84rem;color:var(--muted);margin:10px 0 0">
+        <span class="zh">縱軸是「離解開還有幾步」，橫軸是已經動了幾步。虛線是最優解。四種策略各跑一次會留下自己的軌跡。</span>
+        <span class="en">Vertical: moves still needed. Horizontal: moves made. The dashed line is the optimal path.
+          Each policy leaves its own trace behind.</span>
+      </p>
+    </div>
+  </section>
+
+  <section class="col">
+    <p class="eyebrow">01 · <span class="zh">規則</span><span class="en">The rules</span></p>
+    <h2><span class="zh">只有兩條，但足以逼你後退</span><span class="en">Two rules, and they force you backwards</span></h2>
+    <div class="rules">
+      <div class="rule-card">
+        <span class="n">RULE 1</span>
+        <p><span class="zh">最外面那個環，隨時可以上、可以下。</span>
+           <span class="en">The outermost ring can always go on or off.</span></p>
+      </div>
+      <div class="rule-card">
+        <span class="n">RULE 2</span>
+        <p><span class="zh">環 k 要動，必須環 k−1 還在桿上，而且比它更外面的全都不在。</span>
+           <span class="en">Ring k moves only if ring k−1 is on the bar and every ring outside it is off.</span></p>
+      </div>
+    </div>
+    <p>
+      <span class="zh">推論比規則本身有意思：任何時候<strong>最多只有兩個環動得了</strong>。
+        所以 2⁹ = 512 個狀態其實排成<strong>一條直線</strong>，你只能往前一步或往後一步。
+        全部套上的狀態，落在離終點 341 步的地方。</span>
+      <span class="en">The consequence is more interesting than the rules: at any moment
+        <strong>at most two rings can move</strong>. So the 512 states form a <strong>single path</strong> —
+        you can only step forward or back along it. The all-on state sits 341 steps from the end.</span>
+    </p>
+    <div class="panel" style="margin-top:22px">
+      <div class="panel-hd">
+        <h3><span class="zh">512 個狀態排成一條線</span><span class="en">All 512 states, in a line</span></h3>
+        <span class="sub">gray code</span>
+      </div>
+      <div class="panel-bd"><canvas id="path" height="86" aria-label="狀態路徑"></canvas></div>
+    </div>
+    <p>
+      <span class="zh">距離可以直接算出來——把九個 bit 當成格雷碼解碼，得到的整數就是剩餘步數。
+        合法動作恰好讓這個整數加一或減一。所以九連環其實是一個九位元計數器，
+        而「解開它」就是從 341 數到 0。</span>
+      <span class="en">The distance is computable: read the nine bits as a Gray code and the decoded
+        integer is exactly how many moves remain. Every legal move changes it by ±1. The puzzle
+        is a nine-bit counter, and solving it means counting 341 down to zero.</span>
+    </p>
+    <p>
+      <span class="zh">這也解釋了為什麼「能拿就拿」必死：341 步裡有一半是在把已經解下來的環<strong>裝回去</strong>。
+        一個永遠不肯後退的策略，在 511 個起點裡只解得開一個。</span>
+      <span class="en">It also explains why the intuitive strategy dies: half of those 341 moves put rings
+        <strong>back on</strong>. A policy that never goes backwards solves exactly one of the 511 starts.</span>
+    </p>
+  </section>
+
+  <!-- ── 儀器二：shaping 陷阱 ── -->
+  <section>
+    <div class="col">
+      <p class="eyebrow">02 · <span class="zh">踩到的坑</span><span class="en">The trap</span></p>
+      <h2><span class="zh">照教科書寫，會學不起來</span><span class="en">Following the textbook makes it unlearnable</span></h2>
+      <p>
+        <span class="zh">341 步只有最後一步有分，這叫稀疏獎勵。標準解法是 potential-based reward shaping：
+          用一個位能函數 Φ，讓每走對一步就有回饋。</span>
+        <span class="en">Only the last of 341 moves pays anything — a sparse reward. The standard fix is
+          potential-based reward shaping: a potential Φ that pays off on every correct step.</span>
+      </p>
+      <div class="formula"><span>F(s,s′) = shaping × ( γ<sub>s</sub> · Φ(s′) − Φ(s) )</span><span>Φ(s) = −distance(s)</span></div>
+      <p>
+        <span class="zh">Ng et al. (1999) 的保證要求 γ<sub>s</sub> 等於訓練用的折扣率，這樣最優策略才不會被改掉。
+          照做的結果是<strong>完全學不起來</strong>——原因在展開之後：因為 Φ 跟距離成正比，
+          會多出一項 (1 − γ<sub>s</sub>) · d。d 最大 341，γ<sub>s</sub> = 0.95 時這一項有 17，
+          是真正帶方向的那個 ±1 的十七倍。走錯邊也拿正分。</span>
+        <span class="en">Ng et al. (1999) require γ<sub>s</sub> to equal the training discount for the guarantee to
+          hold. Doing that <strong>fails completely</strong>. Expand it: Φ is proportional to distance, so a
+          term (1 − γ<sub>s</sub>) · d appears. With d up to 341 and γ<sub>s</sub> = 0.95 that term is 17 —
+          seventeen times the ±1 that actually carries direction. Moving the wrong way still pays.</span>
+      </p>
+    </div>
+    <div class="panel">
+      <div class="panel-hd">
+        <h3><span class="zh">同一份程式，只改 shaping 的一個常數</span><span class="en">Same code, one shaping constant changed</span></h3>
+        <span class="sub" id="ablSub">300k transitions</span>
+      </div>
+      <div class="panel-bd">
+        <canvas id="abl" height="300" aria-label="shaping 對照曲線"></canvas>
+        <div class="legend" id="ablLegend"></div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="callout">
+        <p><strong><span class="zh">理論保證的前提沒滿足的時候，要知道它為什麼沒滿足。</span>
+          <span class="en">When a guarantee's precondition fails, know why it fails.</span></strong></p>
+        <p><span class="zh">這裡把 γ<sub>s</sub> 設成 1，換來「走對一步就加分」，代價是理論保證消失。
+          所以才必須窮舉 511 個起點去驗證它真的走出最優解，而不是相信它。</span>
+          <span class="en">Setting γ<sub>s</sub> = 1 buys a clean ±1 signal and gives up the guarantee. That is
+          exactly why the evaluation enumerates all 511 starts instead of trusting the theory.</span></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 儀器三：窮舉結果 ── -->
+  <section>
+    <div class="col">
+      <p class="eyebrow">03 · <span class="zh">結果</span><span class="en">Results</span></p>
+      <h2><span class="zh">窮舉，不是抽樣</span><span class="en">Enumerated, not sampled</span></h2>
+      <p>
+        <span class="zh">環境完全沒有隨機性，狀態又只有 512 個，所以評估是從<strong>每一個</strong>非終點狀態各解一次。
+          沒有 seed，沒有信賴區間可談。</span>
+        <span class="en">The environment has no randomness and only 512 states, so evaluation runs once from
+          <strong>every</strong> non-terminal state. No seeds, no confidence intervals to argue about.</span>
+      </p>
+    </div>
+    <div class="panel">
+      <div class="panel-hd">
+        <h3><span class="zh">四個策略 × 511 個起點</span><span class="en">Four policies × 511 starts</span></h3>
+        <span class="sub" id="benchSub"></span>
+      </div>
+      <div class="panel-bd tablewrap"><table id="benchTable"></table></div>
+    </div>
+    <div class="col">
+      <p>
+        <span class="zh">也要照實說：這件事其實<strong>不需要神經網路</strong>。512 個狀態直接開一張 Q 表，
+          表格式 Q-learning 五千局就收斂到 100% 最優，比 DQN 快也比 DQN 準。
+          這個專案值得學的是方法——動作遮罩、shaping、窮舉式評估——不是結果。</span>
+        <span class="en">In fairness: this problem <strong>does not need a neural network</strong>. With 512 states you
+          can hold the whole Q-table in memory; tabular Q-learning converges to 100% optimal in about
+          five thousand episodes, faster and more reliably than DQN. What is worth taking from this
+          project is the method — action masking, shaping, exhaustive evaluation — not the result.</span>
+      </p>
+    </div>
+    <div class="panel">
+      <div class="panel-hd">
+        <h3><span class="zh">訓練曲線</span><span class="en">Training curve</span></h3>
+        <span class="sub" id="curveSub"></span>
+      </div>
+      <div class="panel-bd">
+        <canvas id="curve" height="240" aria-label="訓練曲線"></canvas>
+        <div class="legend">
+          <span><i style="background:var(--verdigris)"></i><span class="zh">走出剛好最優的起點比例</span><span class="en">starts solved in exactly the optimal number of moves</span></span>
+          <span><i style="background:var(--muted)"></i><span class="zh">解得開就算的比例</span><span class="en">starts solved at all</span></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="col">
+    <p class="eyebrow">04 · <span class="zh">怎麼組起來的</span><span class="en">How it is built</span></p>
+    <h2><span class="zh">兩份實作，一套規則</span><span class="en">Two implementations, one rulebook</span></h2>
+    <p>
+      <span class="zh">瀏覽器裡的 <code>engine.js</code> 和訓練用的 <code>env.py</code> 是同一套規則的兩份實作，
+        兩邊都讀同一份 <code>shared/config.json</code>。因為環境是決定性的，跨語言對帳可以要求
+        <strong>逐位相同</strong>：JS 端跑過 511 個起點的三個數字，必須跟 Python 端一模一樣，差一步就是 bug。</span>
+      <span class="en"><code>engine.js</code> in the browser and <code>env.py</code> in training are two
+        implementations of one rulebook, both reading the same <code>shared/config.json</code>. Because the
+        environment is deterministic, the cross-language check demands <strong>bit-identical</strong> results:
+        the JS run over all 511 starts must match Python exactly. One step off is a bug.</span>
+    </p>
+    <div class="tablewrap">
+      <table id="specTable"></table>
+    </div>
+    <div class="links">
+      <a class="linkcard" href="https://github.com/twoutlook/lab-ml-003" target="_blank" rel="noopener">
+        <b><span class="zh">原始碼</span><span class="en">Source code</span></b>
+        <span>github.com/twoutlook/lab-ml-003</span>
+      </a>
+      <!--YT_START-->
+      <a class="linkcard" href="__YT_URL__" target="_blank" rel="noopener">
+        <b><span class="zh">影片版</span><span class="en">Video walkthrough</span></b>
+        <span>__YT_URL__</span>
+      </a>
+      <!--YT_END-->
+    </div>
+  </section>
+
+  <footer class="col">
+    <p><span class="zh">這一頁裡的網路是真的在跑——上面那個 agent 用的就是訓練出來的權重，
+      在你的瀏覽器裡做前向傳播，沒有伺服器。所有數字都從實際跑出來的結果讀進來。</span>
+      <span class="en">The network on this page is live: the agent above runs the trained weights through a
+      forward pass in your browser, with no server. Every number here is read from an actual run.</span></p>
+    <p>MarkLuce AI · Claude Code · Claude Opus 5</p>
+  </footer>
+</div>
+
+<script>
+const DATA = /*__DATA__*/;
+const POLICY = /*__POLICY__*/;
+const N = DATA.config.rings;
+
+/* ── 規則核心：跟 engine.js / solver.py 同一套 ── */
+const legalMask = (s) => {
+  const m = new Int8Array(N); m[0] = 1;
+  for (let k = 1; k < N; k++) {
+    if (s[k - 1] !== 1) continue;
+    let clear = true;
+    for (let j = 0; j < k - 1; j++) if (s[j]) { clear = false; break; }
+    if (clear) { m[k] = 1; break; }
+  }
+  return m;
+};
+const distance = (s) => { let b = 0, t = 0; for (let i = N - 1; i >= 0; i--) { b ^= s[i]; if (b) t |= 1 << i; } return t; };
+const optimalAction = (s) => {
+  const d0 = distance(s); if (!d0) return -1;
+  const m = legalMask(s);
+  for (let i = 0; i < N; i++) { if (!m[i]) continue; s[i] ^= 1; const d = distance(s); s[i] ^= 1; if (d === d0 - 1) return i; }
+  return -1;
+};
+
+/* ── 前向傳播：Dueling MLP，純 JS ── */
+const linear = (x, L) => {
+  const o = new Float64Array(L.w.length);
+  for (let i = 0; i < L.w.length; i++) { const r = L.w[i]; let s = L.b[i]; for (let j = 0; j < r.length; j++) s += r[j] * x[j]; o[i] = s; }
+  return o;
+};
+const relu = (x) => { for (let i = 0; i < x.length; i++) if (x[i] < 0) x[i] = 0; return x; };
+function qValues(obs) {
+  let h = relu(linear(obs, POLICY.body[0])); h = relu(linear(h, POLICY.body[1]));
+  const v = linear(relu(linear(h, POLICY.value[0])), POLICY.value[1])[0];
+  const a = linear(relu(linear(h, POLICY.adv[0])), POLICY.adv[1]);
+  let mean = 0; for (let i = 0; i < a.length; i++) mean += a[i]; mean /= a.length;
+  const q = new Float64Array(a.length); for (let i = 0; i < a.length; i++) q[i] = v + a[i] - mean;
+  return q;
+}
+
+/* ── 執行狀態 ── */
+const MAXS = DATA.config.maxSteps;
+const st = { s: null, steps: 0, dist: 0, d0: 0, over: false, solved: false, last: -1, trace: [], policy: "dqn", playing: true, acc: 0 };
+const traces = {};
+function reset() {
+  st.s = new Int8Array(N).fill(1);
+  st.steps = 0; st.dist = distance(st.s); st.d0 = st.dist;
+  st.over = false; st.solved = false; st.last = -1; st.acc = 0;
+  st.trace = [[0, st.dist]];
+}
+function obsOf() {
+  const o = new Float64Array(2 * N + 1), m = legalMask(st.s);
+  for (let i = 0; i < N; i++) { o[i] = st.s[i] * 2 - 1; o[N + i] = m[i]; }
+  o[2 * N] = st.steps / MAXS;
+  return o;
+}
+function chooseAction() {
+  const m = legalMask(st.s);
+  if (st.policy === "optimal") return optimalAction(st.s);
+  if (st.policy === "greedy") {
+    for (let i = 0; i < N; i++) if (m[i] && st.s[i] === 1) return i;
+    for (let i = 0; i < N; i++) if (m[i]) return i;
+  }
+  if (st.policy === "random") { const idx = []; for (let i = 0; i < N; i++) if (m[i]) idx.push(i); return idx[(Math.random() * idx.length) | 0]; }
+  const q = qValues(obsOf());
+  let best = -1, bv = -Infinity;
+  for (let i = 0; i < N; i++) { const v = m[i] ? q[i] : -1e9; if (v > bv) { bv = v; best = i; } }
+  return best;
+}
+function stepOnce() {
+  if (st.over) return;
+  const a = chooseAction();
+  st.s[a] ^= 1; st.last = a; st.steps++; st.dist = distance(st.s);
+  st.trace.push([st.steps, st.dist]);
+  if (st.dist === 0) { st.solved = true; st.over = true; }
+  else if (st.steps >= MAXS) st.over = true;
+  if (st.over) traces[st.policy] = st.trace.slice();
+}
+
+/* ── 繪圖 ── */
+const cv = (id) => { const c = document.getElementById(id); const x = c.getContext("2d"); return { c, x }; };
+function fit(c) {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const w = c.clientWidth || 600, h = c.height;
+  if (c.width !== Math.round(w * dpr)) { c.width = Math.round(w * dpr); c.style.height = h + "px"; c.__h = h; }
+  const x = c.getContext("2d"); x.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { w, h };
+}
+const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+function drawPuzzle() {
+  const { c, x } = cv("puzzle"); const { w, h } = fit(c);
+  x.clearRect(0, 0, w, h);
+  const m = legalMask(st.s);
+  const gap = Math.min(64, (w - 130) / (N - 1));
+  const r = Math.max(13, Math.min(23, gap * 0.36));
+  const barY = h * 0.52, offDy = r * 2.5, baseY = h - 26;
+  // 環 1 在最右邊，整組置中：右端留出桿頭，左端留出握把
+  const span = (N - 1) * gap;
+  const right = (w + span) / 2 + 26;
+  const xOf = (i) => right - i * gap;
+  const left = right - span;
+
+  x.strokeStyle = css("--rule"); x.lineWidth = 6; x.lineCap = "round";
+  x.beginPath(); x.moveTo(left - 30, baseY); x.lineTo(right + 24, baseY); x.stroke();
+
+  x.strokeStyle = css("--ink-soft"); x.lineWidth = 4;
+  x.beginPath(); x.moveTo(left - 24, barY); x.lineTo(right + 30, barY); x.stroke();
+  x.lineWidth = 3;
+  x.beginPath(); x.ellipse(left - 38, barY, 11, 16, 0, 0, Math.PI * 2); x.stroke();
+
+  for (let i = 0; i < N; i++) {
+    const cx = xOf(i), on = st.s[i] === 1, cy = on ? barY : barY - offDy;
+    x.strokeStyle = css("--rule"); x.lineWidth = 2;
+    x.beginPath(); x.moveTo(cx, baseY); x.lineTo(cx, cy + r); x.stroke();
+    x.strokeStyle = i === st.last ? css("--brass") : m[i] ? css("--verdigris") : css("--muted");
+    x.globalAlpha = m[i] || i === st.last ? 1 : 0.45;
+    x.lineWidth = 5;
+    x.beginPath(); x.arc(cx, cy, r, 0, Math.PI * 2); x.stroke();
+    x.globalAlpha = 1;
+    x.fillStyle = css("--muted"); x.font = "500 11px " + css("--mono"); x.textAlign = "center";
+    x.fillText(String(i + 1), cx, baseY + 18);
+  }
+  x.textAlign = "left";
+}
+
+function drawTrace() {
+  const { c, x } = cv("trace"); const { w, h } = fit(c);
+  x.clearRect(0, 0, w, h);
+  const pad = { l: 42, r: 14, t: 14, b: 24 };
+  const maxX = Math.max(st.d0, st.steps, ...Object.values(traces).map((t) => t[t.length - 1][0]));
+  const X = (v) => pad.l + (v / maxX) * (w - pad.l - pad.r);
+  const Y = (v) => h - pad.b - (v / st.d0) * (h - pad.t - pad.b);
+
+  x.strokeStyle = css("--rule"); x.lineWidth = 1;
+  x.font = "400 10px " + css("--mono"); x.fillStyle = css("--muted"); x.textAlign = "right";
+  for (let i = 0; i <= 4; i++) {
+    const v = (st.d0 / 4) * i, y = Y(v);
+    x.beginPath(); x.moveTo(pad.l, y); x.lineTo(w - pad.r, y); x.stroke();
+    x.fillText(v.toFixed(0), pad.l - 8, y + 3);
+  }
+  x.textAlign = "left";
+
+  x.strokeStyle = css("--muted"); x.setLineDash([5, 5]); x.lineWidth = 1.5; x.globalAlpha = .7;
+  x.beginPath(); x.moveTo(X(0), Y(st.d0)); x.lineTo(X(st.d0), Y(0)); x.stroke();
+  x.setLineDash([]); x.globalAlpha = 1;
+
+  const COL = { dqn: css("--verdigris"), optimal: css("--brass"), greedy: css("--cinnabar"), random: css("--muted") };
+  for (const [k, t] of Object.entries(traces)) {
+    if (k === st.policy) continue;
+    x.strokeStyle = COL[k]; x.globalAlpha = .3; x.lineWidth = 2;
+    x.beginPath(); t.forEach((p, i) => (i ? x.lineTo(X(p[0]), Y(p[1])) : x.moveTo(X(p[0]), Y(p[1])))); x.stroke();
+  }
+  x.globalAlpha = 1;
+  x.strokeStyle = COL[st.policy]; x.lineWidth = 2.5;
+  x.beginPath(); st.trace.forEach((p, i) => (i ? x.lineTo(X(p[0]), Y(p[1])) : x.moveTo(X(p[0]), Y(p[1])))); x.stroke();
+  const last = st.trace[st.trace.length - 1];
+  x.fillStyle = COL[st.policy];
+  x.beginPath(); x.arc(X(last[0]), Y(last[1]), 4, 0, Math.PI * 2); x.fill();
+}
+
+function drawPath() {
+  const { c, x } = cv("path"); const { w, h } = fit(c);
+  x.clearRect(0, 0, w, h);
+  const pad = 34, y = h * 0.48, total = 1 << N;
+  const X = (d) => pad + (d / (total - 1)) * (w - pad * 2);
+  x.strokeStyle = css("--rule"); x.lineWidth = 2;
+  x.beginPath(); x.moveTo(X(0), y); x.lineTo(X(total - 1), y); x.stroke();
+  x.strokeStyle = css("--verdigris"); x.lineWidth = 3;
+  x.beginPath(); x.moveTo(X(0), y); x.lineTo(X(DATA.benchmark.full_distance), y); x.stroke();
+  const dot = (d, col, label, above) => {
+    x.fillStyle = col; x.beginPath(); x.arc(X(d), y, 5, 0, Math.PI * 2); x.fill();
+    x.font = "500 11px " + css("--mono"); x.textAlign = "center"; x.fillStyle = col;
+    x.fillText(label, X(d), above ? y - 14 : y + 22);
+  };
+  dot(0, css("--verdigris"), "0 · solved", true);
+  dot(DATA.benchmark.full_distance, css("--brass"), DATA.benchmark.full_distance + " · 全上 all on", true);
+  dot(total - 1, css("--muted"), (total - 1) + "", false);
+  x.textAlign = "left";
+}
+
+function drawAbl() {
+  const { c, x } = cv("abl"); const { w, h } = fit(c);
+  x.clearRect(0, 0, w, h);
+  const pad = { l: 46, r: 16, t: 16, b: 28 };
+  const maxX = Math.max(...DATA.ablation.runs.flatMap((r) => r.history.map((p) => p.step)));
+  const X = (v) => pad.l + (v / maxX) * (w - pad.l - pad.r);
+  const Y = (v) => h - pad.b - v * (h - pad.t - pad.b);
+  x.strokeStyle = css("--rule"); x.lineWidth = 1;
+  x.font = "400 10px " + css("--mono"); x.fillStyle = css("--muted"); x.textAlign = "right";
+  for (let i = 0; i <= 4; i++) {
+    const v = i / 4, y = Y(v);
+    x.beginPath(); x.moveTo(pad.l, y); x.lineTo(w - pad.r, y); x.stroke();
+    x.fillText((v * 100).toFixed(0) + "%", pad.l - 8, y + 3);
+  }
+  x.textAlign = "left";
+  const cols = [css("--verdigris"), css("--cinnabar"), css("--brass")];
+  DATA.ablation.runs.forEach((run, i) => {
+    x.strokeStyle = cols[i]; x.lineWidth = 2.5;
+    x.beginPath(); run.history.forEach((p, k) => (k ? x.lineTo(X(p.step), Y(p.optimal_rate)) : x.moveTo(X(p.step), Y(p.optimal_rate)))); x.stroke();
+  });
+}
+
+function drawCurve() {
+  const { c, x } = cv("curve"); const { w, h } = fit(c);
+  x.clearRect(0, 0, w, h);
+  const pad = { l: 46, r: 16, t: 16, b: 28 };
+  const maxX = Math.max(...DATA.history.map((p) => p.step));
+  const X = (v) => pad.l + (v / maxX) * (w - pad.l - pad.r);
+  const Y = (v) => h - pad.b - v * (h - pad.t - pad.b);
+  x.strokeStyle = css("--rule"); x.lineWidth = 1;
+  x.font = "400 10px " + css("--mono"); x.fillStyle = css("--muted"); x.textAlign = "right";
+  for (let i = 0; i <= 4; i++) {
+    const v = i / 4, y = Y(v);
+    x.beginPath(); x.moveTo(pad.l, y); x.lineTo(w - pad.r, y); x.stroke();
+    x.fillText((v * 100).toFixed(0) + "%", pad.l - 8, y + 3);
+  }
+  x.textAlign = "left";
+  const line = (key, col, lw) => {
+    x.strokeStyle = col; x.lineWidth = lw;
+    x.beginPath(); DATA.history.forEach((p, i) => (i ? x.lineTo(X(p.step), Y(p[key])) : x.moveTo(X(p.step), Y(p[key])))); x.stroke();
+  };
+  line("solve_rate", css("--muted"), 1.5);
+  line("optimal_rate", css("--verdigris"), 2.5);
+}
+
+/* ── 表格 ── */
+const pct = (v) => (v * 100).toFixed(1) + "%";
+function buildTables() {
+  const b = DATA.benchmark;
+  document.getElementById("benchSub").textContent = `${b.starts} starts · ≤${b.max_steps} moves`;
+  const head = ["policy", "解得開 solved", "剛好最優 optimal", "平均倍率 ratio", "全上 all-on"];
+  let html = "<thead><tr>" + head.map((t) => `<th>${t}</th>`).join("") + "</tr></thead><tbody>";
+  for (const r of b.rows) {
+    const hi = r.name.startsWith("DQN") ? ' class="hi"' : "";
+    html += `<tr${hi}><td>${r.name}<br><span style="font-size:.78rem;color:var(--muted)">${r.note}</span></td>` +
+      `<td class="num">${pct(r.solve_rate)}</td><td class="num">${pct(r.optimal_rate)}</td>` +
+      `<td class="num">${r.mean_ratio ? r.mean_ratio.toFixed(2) + "×" : "—"}</td>` +
+      `<td class="num">${r.full_steps ? r.full_steps + " 步" : "—"}</td></tr>`;
+  }
+  document.getElementById("benchTable").innerHTML = html + "</tbody>";
+
+  const spec = [
+    ["狀態 / state", `${2 * N + 1} 維：9 bit + 9 合法遮罩 + 1 時間`],
+    ["動作 / actions", `${N}，不合法的壓成 −1e9`],
+    ["演算法 / algorithm", "Double DQN + Dueling head + 5-step return"],
+    ["獎勵 / reward", `step ${DATA.config.reward.step} · shaping ${DATA.config.reward.shaping} · solve +${DATA.config.reward.solve}`],
+    ["折扣率 / gamma", `${DATA.config.gamma}（shapingGamma ${DATA.config.shapingGamma}）`],
+    ["訓練量 / training", `${DATA.trained_steps.toLocaleString()} transitions`],
+    ["評估 / evaluation", `${DATA.benchmark.starts} 個起點全部窮舉`],
+  ];
+  document.getElementById("specTable").innerHTML =
+    "<tbody>" + spec.map(([k, v]) => `<tr><td>${k}</td><td class="num" style="text-align:right;white-space:normal">${v}</td></tr>`).join("") + "</tbody>";
+
+  document.getElementById("curveSub").textContent =
+    `${(Math.max(...DATA.history.map((p) => p.step)) / 1000).toFixed(0)}k transitions`;
+  document.getElementById("ablSub").textContent = `${(DATA.ablation.steps / 1000).toFixed(0)}k transitions`;
+  const cols = ["--verdigris", "--cinnabar", "--brass"];
+  document.getElementById("ablLegend").innerHTML = DATA.ablation.runs.map((r, i) =>
+    `<span><i style="background:var(${cols[i]})"></i>${r.name} — ${r.setting} · <b style="font-family:var(--mono)">${pct(r.final_optimal_rate)}</b></span>`).join("");
+}
+
+/* ── 主迴圈 ── */
+const MOVES_PER_SEC = { dqn: 26, optimal: 26, greedy: 14, random: 90 };
+let lastT = 0;
+function frame(t) {
+  const dt = Math.min(0.1, (t - lastT) / 1000 || 0); lastT = t;
+  if (st.playing && !st.over) {
+    st.acc += dt * MOVES_PER_SEC[st.policy];
+    while (st.acc >= 1 && !st.over) { st.acc -= 1; stepOnce(); }
+  }
+  if (st.over && st.playing) { st.acc -= dt * 6; if (st.acc < -12) reset(); }
+  drawPuzzle(); drawTrace(); paintReadout();
+  requestAnimationFrame(frame);
+}
+function paintReadout() {
+  document.getElementById("rSteps").textContent = st.steps.toLocaleString();
+  document.getElementById("rLeft").textContent = st.dist;
+  document.getElementById("rOpt").textContent = st.d0;
+  document.getElementById("rExtra").textContent = st.solved ? st.steps - st.d0 : "—";
+  const bits = document.getElementById("heroBits");
+  bits.innerHTML = Array.from(st.s).map((b) => `<span class="${b ? "" : "off"}">${b}</span>`).join("");
+  document.getElementById("heroNote").textContent = `state ${Array.from(st.s).join("")} · ${st.dist} moves to solved`;
+  document.getElementById("solverSub").textContent = `policy · ${st.policy}`;
+}
+
+/* ── 介面 ── */
+document.getElementById("policySeg").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-p]"); if (!b) return;
+  st.policy = b.dataset.p;
+  document.querySelectorAll("#policySeg button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+  reset();
+});
+document.getElementById("resetBtn").addEventListener("click", reset);
+document.getElementById("playBtn").addEventListener("click", (e) => {
+  st.playing = !st.playing;
+  e.currentTarget.innerHTML = st.playing
+    ? '<span class="zh">暫停</span><span class="en">Pause</span>'
+    : '<span class="zh">播放</span><span class="en">Play</span>';
+});
+document.getElementById("langBtn").addEventListener("click", (e) => {
+  const en = document.documentElement.getAttribute("data-lang") === "en";
+  document.documentElement.setAttribute("data-lang", en ? "zh" : "en");
+  document.documentElement.lang = en ? "zh-Hant" : "en";
+  e.currentTarget.textContent = en ? "EN" : "中";
+});
+document.getElementById("themeBtn").addEventListener("click", () => {
+  const cur = document.documentElement.getAttribute("data-theme");
+  const dark = cur ? cur === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  document.documentElement.setAttribute("data-theme", dark ? "light" : "dark");
+  redrawStatic();
+});
+function redrawStatic() { drawPath(); drawAbl(); drawCurve(); }
+addEventListener("resize", redrawStatic);
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", redrawStatic);
+
+document.documentElement.lang = "zh-Hant";
+buildTables();
+reset();
+redrawStatic();
+requestAnimationFrame(frame);
+</script>

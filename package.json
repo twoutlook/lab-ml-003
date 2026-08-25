@@ -4,6 +4,12 @@
   "type": "module",
   "scripts": {
     "serve": "python -m http.server 8000",
-    "parity": "node web/_parity_test.mjs"
+    "parity": "node web/_parity_test.mjs",
+    "voice": "python tools/make_voice.py",
+    "record": "node tools/record_video.mjs",
+    "artifact": "node tools/build_artifact.mjs"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^25.8.0"
   }
 }

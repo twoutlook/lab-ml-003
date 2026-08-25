@@ -1,0 +1,97 @@
+{
+  "fps": 30,
+  "width": 1920,
+  "height": 1080,
+  "scenes": [
+    {
+      "id": "title",
+      "kind": "title",
+      "mode": "dqn",
+      "label": "",
+      "start": 0,
+      "frames": 875,
+      "seed": null,
+      "totalSteps": 341,
+      "solved": true,
+      "maxPlaySteps": 0,
+      "playFrames": 836,
+      "stepsPerFrame": 0.40789473684210525
+    },
+    {
+      "id": "rules",
+      "kind": "puzzle",
+      "mode": "optimal",
+      "label": "規則：只有兩條",
+      "start": 875,
+      "frames": 935,
+      "seed": null,
+      "totalSteps": 14,
+      "solved": false,
+      "maxPlaySteps": 14,
+      "playFrames": 896,
+      "stepsPerFrame": 0.015625
+    },
+    {
+      "id": "greedy",
+      "kind": "puzzle",
+      "mode": "greedy",
+      "label": "直覺策略：能拿就拿",
+      "start": 1810,
+      "frames": 926,
+      "seed": null,
+      "totalSteps": 1200,
+      "solved": false,
+      "maxPlaySteps": 0,
+      "playFrames": 887,
+      "stepsPerFrame": 1.3528748590755355
+    },
+    {
+      "id": "random",
+      "kind": "puzzle",
+      "mode": "random",
+      "label": "地板：完全亂走",
+      "start": 2736,
+      "frames": 845,
+      "seed": 11,
+      "totalSteps": 1200,
+      "solved": false,
+      "maxPlaySteps": 0,
+      "playFrames": 806,
+      "stepsPerFrame": 1.488833746898263
+    },
+    {
+      "id": "dqn",
+      "kind": "puzzle",
+      "mode": "dqn",
+      "label": "DQN agent",
+      "start": 3581,
+      "frames": 1136,
+      "seed": null,
+      "totalSteps": 341,
+      "solved": true,
+      "maxPlaySteps": 0,
+      "playFrames": 1097,
+      "stepsPerFrame": 0.3108477666362808
+    },
+    {
+      "id": "shaping",
+      "kind": "shaping",
+      "mode": null,
+      "label": "",
+      "start": 4717,
+      "frames": 1615,
+      "seed": null
+    },
+    {
+      "id": "results",
+      "kind": "results",
+      "mode": null,
+      "label": "",
+      "start": 6332,
+      "frames": 1414,
+      "seed": null
+    }
+  ],
+  "totalFrames": 7746,
+  "durationSec": 258.2
+}

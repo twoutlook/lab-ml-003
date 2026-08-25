@@ -1,0 +1,218 @@
+{
+  "steps": 300000,
+  "runs": [
+    {
+      "tag": "ab_fixed",
+      "name": "shapingGamma = 1",
+      "setting": "本專案的做法",
+      "steps": 300000,
+      "final_optimal_rate": 1.0,
+      "final_solve_rate": 1.0,
+      "best_optimal_rate": 1.0,
+      "history": [
+        {
+          "step": 25024,
+          "optimal_rate": 0.0,
+          "solve_rate": 0.0
+        },
+        {
+          "step": 50048,
+          "optimal_rate": 0.002,
+          "solve_rate": 0.002
+        },
+        {
+          "step": 75008,
+          "optimal_rate": 0.908,
+          "solve_rate": 0.99
+        },
+        {
+          "step": 100032,
+          "optimal_rate": 1.0,
+          "solve_rate": 1.0
+        },
+        {
+          "step": 125056,
+          "optimal_rate": 0.996,
+          "solve_rate": 1.0
+        },
+        {
+          "step": 150016,
+          "optimal_rate": 0.978,
+          "solve_rate": 1.0
+        },
+        {
+          "step": 175040,
+          "optimal_rate": 1.0,
+          "solve_rate": 1.0
+        },
+        {
+          "step": 200000,
+          "optimal_rate": 1.0,
+          "solve_rate": 1.0
+        },
+        {
+          "step": 225024,
+          "optimal_rate": 1.0,
+          "solve_rate": 1.0
+        },
+        {
+          "step": 250048,
+          "optimal_rate": 1.0,
+          "solve_rate": 1.0
+        },
+        {
+          "step": 275008,
+          "optimal_rate": 1.0,
+          "solve_rate": 1.0
+        },
+        {
+          "step": 300032,
+          "optimal_rate": 1.0,
+          "solve_rate": 1.0
+        }
+      ]
+    },
+    {
+      "tag": "ab_textbook",
+      "name": "shapingGamma = γ",
+      "setting": "教科書寫法（Ng et al. 1999）",
+      "steps": 300000,
+      "final_optimal_rate": 0.0,
+      "final_solve_rate": 0.006,
+      "best_optimal_rate": 0.006,
+      "history": [
+        {
+          "step": 25024,
+          "optimal_rate": 0.002,
+          "solve_rate": 0.002
+        },
+        {
+          "step": 50048,
+          "optimal_rate": 0.002,
+          "solve_rate": 0.002
+        },
+        {
+          "step": 75008,
+          "optimal_rate": 0.002,
+          "solve_rate": 0.002
+        },
+        {
+          "step": 100032,
+          "optimal_rate": 0.002,
+          "solve_rate": 0.002
+        },
+        {
+          "step": 125056,
+          "optimal_rate": 0.002,
+          "solve_rate": 0.002
+        },
+        {
+          "step": 150016,
+          "optimal_rate": 0.002,
+          "solve_rate": 0.002
+        },
+        {
+          "step": 175040,
+          "optimal_rate": 0.006,
+          "solve_rate": 0.006
+        },
+        {
+          "step": 200000,
+          "optimal_rate": 0.002,
+          "solve_rate": 0.002
+        },
+        {
+          "step": 225024,
+          "optimal_rate": 0.006,
+          "solve_rate": 0.006
+        },
+        {
+          "step": 250048,
+          "optimal_rate": 0.006,
+          "solve_rate": 0.006
+        },
+        {
+          "step": 275008,
+          "optimal_rate": 0.006,
+          "solve_rate": 0.006
+        },
+        {
+          "step": 300032,
+          "optimal_rate": 0.0,
+          "solve_rate": 0.006
+        }
+      ]
+    },
+    {
+      "tag": "ab_sparse",
+      "name": "shaping = 0",
+      "setting": "純稀疏獎勵，γ = 0.999",
+      "steps": 300000,
+      "final_optimal_rate": 0.0,
+      "final_solve_rate": 0.0,
+      "best_optimal_rate": 0.008,
+      "history": [
+        {
+          "step": 25024,
+          "optimal_rate": 0.0,
+          "solve_rate": 0.0
+        },
+        {
+          "step": 50048,
+          "optimal_rate": 0.002,
+          "solve_rate": 0.002
+        },
+        {
+          "step": 75008,
+          "optimal_rate": 0.0,
+          "solve_rate": 0.0
+        },
+        {
+          "step": 100032,
+          "optimal_rate": 0.002,
+          "solve_rate": 0.002
+        },
+        {
+          "step": 125056,
+          "optimal_rate": 0.002,
+          "solve_rate": 0.002
+        },
+        {
+          "step": 150016,
+          "optimal_rate": 0.002,
+          "solve_rate": 0.002
+        },
+        {
+          "step": 175040,
+          "optimal_rate": 0.008,
+          "solve_rate": 0.008
+        },
+        {
+          "step": 200000,
+          "optimal_rate": 0.0,
+          "solve_rate": 0.0
+        },
+        {
+          "step": 225024,
+          "optimal_rate": 0.0,
+          "solve_rate": 0.0
+        },
+        {
+          "step": 250048,
+          "optimal_rate": 0.0,
+          "solve_rate": 0.0
+        },
+        {
+          "step": 275008,
+          "optimal_rate": 0.0,
+          "solve_rate": 0.0
+        },
+        {
+          "step": 300032,
+          "optimal_rate": 0.0,
+          "solve_rate": 0.0
+        }
+      ]
+    }
+  ]
+}

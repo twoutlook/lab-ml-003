@@ -1,5 +1,9 @@
 # lab-ml-003 — 九連環 × DQN
 
+**影片**（4:17，繁中旁白）https://youtu.be/CQ-X3vbpqIk ·
+**可互動圖文版**（中英雙語，網頁上的 agent 是真的在跑推論）
+https://claude.ai/code/artifact/ab8383b4-9e64-47ae-8578-800957e11865
+
 系列的第三個。001 是打磚塊、002 是俄羅斯方塊，這個是九連環。
 一樣是「自己寫遊戲、自己寫環境、自己訓練 agent」，沒有 Gym / Stable-Baselines3。
 
@@ -22,8 +26,16 @@ ml/                    訓練
   train.py               Double DQN 訓練迴圈
   tabular.py             表格式 Q-learning（512 個狀態，可以整張印出來）
   evaluate.py            窮舉 512 個起點，跟亂走 / 貪心 / 最優解比
+  benchmark.py           同樣的窮舉，但寫成 json 給影片和 artifact 讀
+  ablation.py            reward shaping 的三組對照實驗
   export_policy.py       權重 -> web/policy.json
   _smoke.py              改完規則一定要跑的自我檢查
+tools/                 影片與 artifact
+  script.json            旁白稿（每一段的長度決定該場景要幾格 frame）
+  make_voice.py          edge-tts -> out/voice/*.mp3 + timing.json
+  record_video.mjs       headless Chrome 逐格離線算圖 -> out/rings-dqn.mp4
+  build_artifact.mjs     把資料與權重灌進樣板 -> out/artifact.html
+  publish_youtube.py     建 playlist、組描述、上傳
 ```
 
 ## 快速開始
@@ -108,7 +120,7 @@ F(s, s') = shaping * (γ_s * Φ(s') − Φ(s))，   Φ(s) = −distance(s)
 照做的結果是完全學不起來，原因值得記住：
 
 Φ 和距離成正比，展開之後會多出一項 `(1 − γ_s) · d`。d 最大 341，
-所以 γ_s = 0.997 時這一項就有 ~1.0，跟真正帶方向的那個 ±1 一樣大。
+所以 γ_s = 0.95 時這一項就有 17，是真正帶方向的那個 ±1 的十七倍。
 最後變成**走錯方向也拿正分**，agent 當然學不到方向。
 
 這裡的做法是 `shapingGamma = 1.0`，讓 F 剛好等於 ±shaping。
@@ -131,6 +143,21 @@ F(s, s') = shaping * (γ_s * Φ(s') − Φ(s))，   Φ(s) = −distance(s)
 「亂走」在 1200 步內只解得開 4.7%，而且那幾乎全是本來就快到終點的起點——
 因為在一條 512 長的路徑上隨機遊走，走到端點要 O(N²) 步。
 這就是為什麼稀疏獎勵在這裡是真的難，不是假難。
+
+## shaping 對照實驗（README 上那三句話是真的跑出來的）
+
+```bash
+cd ml && python ablation.py        # 三組各跑 30 萬 transition，約 4 分鐘
+```
+
+| 設定 | 差別 | 最後走出最優的起點比例 |
+|---|---|---|
+| `shapingGamma = 1` | 本專案的做法 | **100.0%** |
+| `shapingGamma = γ` | 教科書寫法（Ng et al. 1999） | 0.0% |
+| `shaping = 0` | 純稀疏獎勵，γ = 0.999 | 0.0% |
+
+三組的程式與超參數完全一樣，只差 shaping 的一個常數。
+結果寫進 `ml/checkpoints/ablation.json`，影片和 artifact 的那三條曲線就是讀這個檔案。
 
 ## 三個可以直接跑的對照實驗
 
@@ -174,3 +201,22 @@ cd web && node _parity_test.mjs
    從離終點 8 步開始，解得動就往後推。比 shaping 慢，但不需要知道 distance 函數。
 5. **換演算法**：這個環境的動作是離散的、狀態是有限的，很適合拿來比較
    DQN / PPO / MCTS 的樣本效率。
+
+## 影片是怎麼做出來的
+
+```bash
+cd ml && python benchmark.py && python ablation.py    # 影片要用的數字
+cd .. && python tools/make_voice.py                   # 旁白 + 每段長度
+python -m http.server 8000                            # record.html 要用 http
+node tools/record_video.mjs                           # -> out/rings-dqn.mp4
+node tools/build_artifact.mjs                         # -> out/artifact.html
+python tools/publish_youtube.py --dry-run             # 先看描述
+python tools/publish_youtube.py                       # 上傳（預設 unlisted）
+```
+
+畫面不是螢幕錄影，是 headless Chrome 一格一格算出來再餵給 ffmpeg，所以不會掉格，
+也跟機器快慢無關。旁白不是錄進去的，是錄完之後照場景起始時間貼上去的——
+每個場景要幾格 frame，由那一段旁白的實際長度決定，對時是算出來的不是對出來的。
+
+影片裡的每一個數字都從 `benchmark.json` / `ablation.json` / `plan.json` 讀，
+沒有一個是手打進去的。改了訓練結果重錄一次，數字自己會跟著變。

@@ -1,0 +1,46 @@
+{
+  "rings": 9,
+  "starts": 511,
+  "max_steps": 1200,
+  "full_distance": 341,
+  "trained_steps": 800000,
+  "deterministic": true,
+  "rows": [
+    {
+      "name": "亂走 random",
+      "note": "從合法動作裡均勻抽一個",
+      "solve_rate": 0.047,
+      "optimal_rate": 0.0059,
+      "mean_ratio": 20.551,
+      "full_solved": false,
+      "full_steps": null
+    },
+    {
+      "name": "貪心拿環 greedy",
+      "note": "能拿下來就拿下來，逼不得已才裝回去",
+      "solve_rate": 0.002,
+      "optimal_rate": 0.002,
+      "mean_ratio": 1.0,
+      "full_solved": false,
+      "full_steps": null
+    },
+    {
+      "name": "DQN agent（800,000 steps）",
+      "note": "只給獎勵，沒給規則",
+      "solve_rate": 1.0,
+      "optimal_rate": 1.0,
+      "mean_ratio": 1.0,
+      "full_solved": true,
+      "full_steps": 341
+    },
+    {
+      "name": "最優解 optimal",
+      "note": "格雷碼算出來的，不是學的",
+      "solve_rate": 1.0,
+      "optimal_rate": 1.0,
+      "mean_ratio": 1.0,
+      "full_solved": true,
+      "full_steps": 341
+    }
+  ]
+}
