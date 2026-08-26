@@ -505,10 +505,18 @@ function stepOnce() {
 
 /* ── 繪圖 ── */
 const cv = (id) => { const c = document.getElementById(id); const x = c.getContext("2d"); return { c, x }; };
+// 高解析度螢幕上，繪圖表面的「寬和高」都要乘上 devicePixelRatio。
+// 只乘寬的話，setTransform(dpr,…,dpr) 會把可繪製高度縮成 height/dpr——
+// dpr = 1.5625 時 230px 的畫布只剩 147px，底板和編號整排被切掉。
+// h 只讀一次：c.height 一旦被我們改成裝置像素，就不能再拿它當 CSS 高度。
 function fit(c) {
   const dpr = Math.min(2, window.devicePixelRatio || 1);
-  const w = c.clientWidth || 600, h = c.height;
-  if (c.width !== Math.round(w * dpr)) { c.width = Math.round(w * dpr); c.style.height = h + "px"; c.__h = h; }
+  const h = c.__cssH !== undefined ? c.__cssH : (c.__cssH = c.height);
+  const w = c.clientWidth || 600;
+  const W = Math.round(w * dpr), H = Math.round(h * dpr);
+  if (c.width !== W || c.height !== H) {
+    c.width = W; c.height = H; c.style.height = h + "px";
+  }
   const x = c.getContext("2d"); x.setTransform(dpr, 0, 0, dpr, 0, 0);
   return { w, h };
 }
